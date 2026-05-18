@@ -1,0 +1,77 @@
+{
+    "name": "aftandilmmd/laravel-cacheable",
+    "description": "A modern, attribute-driven method caching layer for Laravel. Annotate any method with #[Cacheable] and let the framework handle the rest — TTL, tags, conditional caching, locking, stale-while-revalidate, invalidation, and more.",
+    "keywords": [
+        "laravel",
+        "cache",
+        "attribute",
+        "annotation",
+        "memoization",
+        "cacheable",
+        "php8",
+        "stampede",
+        "stale-while-revalidate"
+    ],
+    "license": "MIT",
+    "type": "library",
+    "authors": [
+        {
+            "name": "Aftandilmmd"
+        }
+    ],
+    "homepage": "https://github.com/aftandilmmd/laravel-cacheable",
+    "support": {
+        "issues": "https://github.com/aftandilmmd/laravel-cacheable/issues",
+        "source": "https://github.com/aftandilmmd/laravel-cacheable"
+    },
+    "require": {
+        "php": "^8.2",
+        "illuminate/cache": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "illuminate/config": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "illuminate/container": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "illuminate/contracts": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "illuminate/events": "^10.0 || ^11.0 || ^12.0 || ^13.0",
+        "illuminate/support": "^10.0 || ^11.0 || ^12.0 || ^13.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0 || ^9.0 || ^10.0",
+        "phpunit/phpunit": "^10.5 || ^11.0 || ^12.0",
+        "mockery/mockery": "^1.6",
+        "phpstan/phpstan": "^1.10 || ^2.0",
+        "laravel/pint": "^1.13"
+    },
+    "autoload": {
+        "psr-4": {
+            "Aftandilmmd\\Cacheable\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Aftandilmmd\\Cacheable\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "test:coverage": "vendor/bin/phpunit --coverage-text",
+        "analyse": "vendor/bin/phpstan analyse",
+        "format": "vendor/bin/pint"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "phpstan/extension-installer": true
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Aftandilmmd\\Cacheable\\CacheableServiceProvider"
+            ],
+            "aliases": {
+                "Cacheable": "Aftandilmmd\\Cacheable\\Facades\\Cacheable"
+            }
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

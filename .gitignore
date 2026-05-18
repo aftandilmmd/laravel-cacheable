@@ -1,0 +1,14 @@
+/vendor
+/build
+/.phpunit.cache
+/.phpunit.result.cache
+/.claude
+composer.lock
+phpunit.xml
+.phpunit.cache
+.php-cs-fixer.cache
+.phpstan.cache
+.DS_Store
+Thumbs.db
+.idea
+.vscode

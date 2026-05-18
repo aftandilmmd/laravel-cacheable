@@ -1,0 +1,186 @@
+# Laravel Cacheable
+
+Attribute-driven method caching for Laravel 10/11/12/13. Annotate any method
+with `#[Cacheable]` and the package handles TTL, tags, locking, stale-while-
+revalidate, and invalidation automatically.
+
+## Installation
+
+```bash
+composer require aftandilmmd/laravel-cacheable
+php artisan vendor:publish --tag=cacheable-config  # optional
+```
+
+Auto-discovered — no manual provider or alias registration needed.
+
+## Core concept
+
+Add `#[Cacheable]` to a method. On the first call the real method runs and the
+return value is stored in cache. On subsequent calls the cached value is
+returned without executing the method body.
+
+## Invocation styles
+
+### 1. Transparent proxy (recommended)
+
+Register the class in `config/cacheable.php` under `auto_proxy`. Every
+container-resolved instance is then automatically wrapped — call methods
+normally, caching is invisible.
+
+```php
+// config/cacheable.php
+'auto_proxy' => [App\Services\UserService::class],
+```
+
+```php
+// any controller / service that receives UserService via DI
+$user = $this->userService->find(42); // cached automatically
+```
+
+### 2. Manual proxy
+
+```php
+use Aftandilmmd\Cacheable\Facades\Cacheable;
+
+$service = Cacheable::proxy(new UserService());
+$user = $service->find(42); // cached
+```
+
+### 3. Trait dispatcher (explicit, no proxy)
+
+```php
+use Aftandilmmd\Cacheable\Concerns\HasCacheableMethods;
+
+class UserService {
+    use HasCacheableMethods;
+
+    #[Cacheable(ttl: 3600)]
+    public function find(int $id): User { ... }
+}
+
+$service->cached('find', [42]);
+```
+
+## #[Cacheable] attribute — all parameters
+
+| Parameter      | Type           | Default | Description |
+|----------------|----------------|---------|-------------|
+| key            | ?string        | null    | Key template. Supports `{paramName}` and `{param.property}` placeholders. Auto-generated when null. |
+| prefix         | ?string        | config  | Prepended to the key. Falls back to `cacheable.prefix`. |
+| ttl            | ?int           | config  | Seconds. null = cache forever. |
+| tags           | list<string>   | []      | Tag-based grouping. Requires taggable store (redis, memcached, array). |
+| store          | ?string        | config  | Override cache store (e.g. 'redis', 'memcached'). |
+| keyParams      | list<string>   | []      | Whitelist: only these method params are included in key generation. |
+| excludeParams  | list<string>   | []      | Blacklist: these method params are excluded from key generation. |
+| when           | ?string        | null    | Method name on $this returning bool. Cache only when true. |
+| unless         | ?string        | null    | Method name on $this returning bool. Skip cache when true. |
+| cacheNull      | ?bool          | config  | Whether to store null return values. |
+| cacheEmpty     | ?bool          | config  | Whether to store empty arrays / strings / Collections. |
+| lock           | bool           | false   | Enable distributed lock for stampede protection. |
+| lockWait       | ?int           | config  | Seconds to wait for lock acquisition. |
+| jitter         | ?int           | config  | Random seconds added to TTL to spread expirations. |
+| refreshAhead   | ?float         | config  | 0..1 fraction of TTL. Triggers background refresh within this window. |
+| forget         | list<string>   | []      | Key templates to delete after this method runs. |
+| forgetTags     | list<string>   | []      | Tags to flush after this method runs. |
+| version        | ?string        | config  | Embedded in key. Bump to invalidate all entries globally. |
+| hashAlgo       | ?string        | config  | Hash algorithm for auto-generated keys (any hash_algos() value). |
+| serializer     | ?string        | config  | Argument serializer: 'json' \| 'serialize' \| 'igbinary'. |
+
+## Common patterns
+
+### Read method — TTL + tags
+```php
+#[Cacheable(key: 'user.{id}', ttl: 3600, tags: ['users'])]
+public function find(int $id): User { ... }
+```
+
+### Write method — invalidate on mutation
+```php
+#[Cacheable(forget: ['user.{id}'], forgetTags: ['users'])]
+public function update(int $id, array $data): bool { ... }
+```
+
+### Stampede protection
+```php
+#[Cacheable(key: 'report.{date}', ttl: 3600, lock: true, lockWait: 15)]
+public function heavyReport(string $date): array { ... }
+```
+
+### Stale-while-revalidate
+```php
+#[Cacheable(key: 'dashboard', ttl: 600, refreshAhead: 0.2)]
+public function dashboardStats(): array { ... }
+```
+
+### Conditional caching
+```php
+#[Cacheable(ttl: 3600, when: 'shouldCache')]
+public function expensive(string $type): array { ... }
+
+public function shouldCache(string $type): bool
+{
+    return $type !== 'realtime';
+}
+```
+
+## Facade API
+
+```php
+use Aftandilmmd\Cacheable\Facades\Cacheable;
+
+Cacheable::proxy($service);                           // wrap in caching proxy
+Cacheable::keyFor(UserService::class, 'find', [42]);  // resolve cache key
+Cacheable::forget(UserService::class, 'find', [42]);  // delete one entry
+Cacheable::refresh(UserService::class, 'find', [42]); // delete + re-execute to warm cache
+Cacheable::flushTags(['users']);                       // flush by tag
+```
+
+## Events
+
+Listen in `app/Providers/AppServiceProvider.php`:
+
+| Event           | Properties                          | When |
+|-----------------|-------------------------------------|------|
+| CacheHit        | key, class, method, value           | Cached value returned |
+| CacheMissed     | key, class, method                  | No cache — method will run |
+| CacheWritten    | key, class, method, value, ttl      | Result stored in cache |
+| CacheForgotten  | class, method, keys, tags           | Keys/tags invalidated |
+
+## Extending
+
+### Custom key resolver
+```php
+// app/Providers/AppServiceProvider.php
+$this->app->extend(KeyResolver::class, fn ($inner) =>
+    new TenantAwareKeyResolver($inner)
+);
+```
+
+### Custom argument normalizer
+```php
+$this->app->singleton(ArgumentNormalizer::class, MyNormalizer::class);
+```
+
+### Custom cache aspect
+Implement `Aftandilmmd\Cacheable\Contracts\CacheAspect` and bind it.
+
+## Configuration reference (`config/cacheable.php`)
+
+- `enabled` — master switch, default true
+- `store` — default cache store
+- `prefix` — key prefix, default 'cacheable'
+- `version` — global version segment, default 'v1'
+- `ttl` — default TTL in seconds, default 3600
+- `keys.hash_algo` — default 'xxh128'
+- `keys.serializer` — default 'json'
+- `keys.max_length` — default 200
+- `stampede.jitter` — default 0
+- `stampede.lock_wait` — default 10
+- `swr.refresh_ahead` — default 0.0
+- `swr.async` — enable queue-based refresh, default false
+- `swr.queue_connection` — queue connection for async SWR
+- `swr.queue_name` — queue name, default 'default'
+- `storage.cache_null` — default false
+- `storage.cache_empty` — default true
+- `events.enabled` — default true
+- `auto_proxy` — list of classes to auto-wrap on container resolution

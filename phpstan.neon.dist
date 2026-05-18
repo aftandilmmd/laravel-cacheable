@@ -1,0 +1,19 @@
+parameters:
+    level: 6
+    paths:
+        - src
+    treatPhpDocTypesAsCertain: false
+    ignoreErrors:
+        - identifier: missingType.iterableValue
+        - identifier: missingType.generics
+        - identifier: argument.templateType
+        - identifier: trait.unused
+        - identifier: if.alwaysFalse
+        # Laravel's tags() lives on TaggableStore, not the Repository contract.
+        # We guard every call with `supportsTags()` / `method_exists()`, so the
+        # static analyzer's complaint is a false positive.
+        -
+            message: '#Call to an undefined method Illuminate\\Contracts\\Cache\\Repository::tags\(\)#'
+            paths:
+                - src/Aspects/CacheableAspect.php
+                - src/CacheableManager.php
