@@ -29,6 +29,12 @@ composer require aftandilmmd/laravel-cacheable
 
 Auto-discovered. No provider or alias registration needed.
 
+Optionally publish the config file:
+
+```bash
+php artisan vendor:publish --tag=cacheable-config
+```
+
 ---
 
 ## How it works

@@ -29,6 +29,12 @@ composer require aftandilmmd/laravel-cacheable
 
 Paket otomatik keşfedilir. Provider veya alias kaydına gerek yoktur.
 
+İsteğe bağlı olarak config dosyasını yayınlayabilirsin:
+
+```bash
+php artisan vendor:publish --tag=cacheable-config
+```
+
 ---
 
 ## Nasıl çalışır
