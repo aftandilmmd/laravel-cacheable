@@ -172,14 +172,29 @@ class UserService
 
     #[Cacheable(key: 'user.{id}', ttl: 3600)]
     public function find(int $id): User { ... }
+
+    #[Cacheable(key: 'users.active', ttl: 600)]
+    public static function active(): Collection { ... }
 }
 ```
 
 ```php
-$service->cached('find', [42]); // explicit cache dispatch
+$service->cached('find', [42]); // instance method
+$service->cached('active');     // static method — aynı çağrı
 ```
 
 > **Self-call kısıtlaması:** PHP, aynı sınıf içindeki `$this->method()` çağrılarını intercept edemez. İç çağrılarda `$this->cached('method', [...])` kullan.
+
+### Proxy ile static method'lar
+
+`CacheableProxy::wrapClass` ile static method'ları isim üzerinden intercept eden bir proxy nesnesi döner:
+
+```php
+use Aftandilmmd\Cacheable\Support\CacheableProxy;
+
+$proxy = CacheableProxy::wrapClass(UserService::class);
+$proxy->active(); // UserService::active()'i cache katmanı üzerinden çağırır
+```
 
 ---
 
@@ -508,6 +523,9 @@ $this->app->singleton(ArgumentNormalizer::class, MyNormalizer::class);
 
 **`$this->method()` cache'lenmiyor.**
 PHP self-call'ları intercept edemez. `$this->cached('method', [...])` kullan veya proxy inject et.
+
+**Static method cache'lenmiyor.**
+`auto_proxy` ve `Cacheable::proxy()` yalnızca instance'ları wrap eder. `HasCacheableMethods` trait'i ile `cached('method', [...])` ya da `CacheableProxy::wrapClass(MyClass::class)->method()` kullan.
 
 **Tag'lar çalışmıyor.**
 Tag'lar taggable store gerektirir (`redis`, `memcached`, `array`). Store'u değiştir veya `forget` key'lerini kullan.

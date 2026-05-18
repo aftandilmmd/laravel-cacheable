@@ -34,7 +34,7 @@ class CacheableAspect implements CacheAspect
     ) {}
 
     public function handle(
-        object $instance,
+        object|string $instance,
         string $method,
         array $args,
         Closure $callback,
@@ -43,7 +43,8 @@ class CacheableAspect implements CacheAspect
             return $callback();
         }
 
-        $reflection = new ReflectionMethod($instance, $method);
+        $class = is_object($instance) ? $instance::class : $instance;
+        $reflection = new ReflectionMethod($class, $method);
         $attribute = $this->extractAttribute($reflection);
 
         if ($attribute === null) {
@@ -52,33 +53,33 @@ class CacheableAspect implements CacheAspect
 
         $cfg = CacheableConfig::fromAttribute($attribute, $this->config);
 
-        // when / unless gating
-        if (! $this->shouldCache($instance, $attribute, $args)) {
+        // when / unless gating — only available for instance context
+        if (is_object($instance) && ! $this->shouldCache($instance, $attribute, $args)) {
             $result = $callback();
-            $this->handleInvalidation($instance, $reflection, $attribute, $cfg, $args);
+            $this->handleInvalidation($instance, $class, $reflection, $attribute, $cfg, $args);
 
             return $result;
         }
 
-        $key = $this->keyResolver->resolve($attribute, $instance::class, $reflection, $args);
+        $key = $this->keyResolver->resolve($attribute, $class, $reflection, $args);
         $repo = $this->repository($cfg);
 
-        $produce = function () use ($callback, $instance, $reflection, $attribute, $cfg, $args) {
+        $produce = function () use ($callback, $instance, $class, $reflection, $attribute, $cfg, $args) {
             $result = $callback();
-            $this->handleInvalidation($instance, $reflection, $attribute, $cfg, $args);
+            $this->handleInvalidation($instance, $class, $reflection, $attribute, $cfg, $args);
 
             return $result;
         };
 
         if ($cfg->lock) {
-            return $this->withLock($repo, $key, $instance::class, $method, $cfg, $produce);
+            return $this->withLock($repo, $key, $class, $method, $cfg, $produce);
         }
 
         if ($cfg->refreshAhead > 0 && $cfg->ttl !== null && $cfg->ttl > 0) {
-            return $this->withRefreshAhead($repo, $key, $instance::class, $method, $cfg, $produce);
+            return $this->withRefreshAhead($repo, $key, $class, $method, $cfg, $produce);
         }
 
-        return $this->remember($repo, $key, $instance::class, $method, $cfg, $produce);
+        return $this->remember($repo, $key, $class, $method, $cfg, $produce);
     }
 
     protected function extractAttribute(ReflectionMethod $method): ?Cacheable
@@ -345,7 +346,8 @@ class CacheableAspect implements CacheAspect
      * @param  array<int|string, mixed>  $args
      */
     protected function handleInvalidation(
-        object $instance,
+        object|string $instance,
+        string $class,
         ReflectionMethod $method,
         Cacheable $attr,
         CacheableConfig $cfg,
@@ -368,7 +370,7 @@ class CacheableAspect implements CacheAspect
             );
 
             try {
-                $key = $this->keyResolver->resolve($synthetic, $instance::class, $method, $args);
+                $key = $this->keyResolver->resolve($synthetic, $class, $method, $args);
                 $repo->forget($key);
                 $repo->forget($key.':__meta');
                 $forgottenKeys[] = $key;
@@ -386,7 +388,7 @@ class CacheableAspect implements CacheAspect
         }
 
         $this->dispatch(new CacheForgotten(
-            $instance::class,
+            $class,
             $method->getName(),
             $forgottenKeys,
             $attr->forgetTags,

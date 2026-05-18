@@ -39,6 +39,16 @@ final class CacheableProxy
     }
 
     /**
+     * Wraps a class string for static method caching.
+     *
+     * @param  class-string  $class
+     */
+    public static function wrapClass(string $class, ?CacheAspect $aspect = null): StaticCacheableProxy
+    {
+        return new StaticCacheableProxy($class, $aspect ?? app(CacheAspect::class));
+    }
+
+    /**
      * @param  array<int|string, mixed>  $args
      */
     public function __call(string $method, array $args): mixed

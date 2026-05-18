@@ -15,8 +15,11 @@ interface CacheAspect
      * @param  array<int|string, mixed>  $args
      * @param  Closure(): mixed  $callback
      */
+    /**
+     * @param  object|class-string  $instance
+     */
     public function handle(
-        object $instance,
+        object|string $instance,
         string $method,
         array $args,
         Closure $callback,

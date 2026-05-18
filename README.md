@@ -172,14 +172,29 @@ class UserService
 
     #[Cacheable(key: 'user.{id}', ttl: 3600)]
     public function find(int $id): User { ... }
+
+    #[Cacheable(key: 'users.active', ttl: 600)]
+    public static function active(): Collection { ... }
 }
 ```
 
 ```php
-$service->cached('find', [42]); // explicit cache dispatch
+$service->cached('find', [42]); // instance method
+$service->cached('active');     // static method — same call
 ```
 
 > **Self-call limitation:** PHP cannot intercept `$this->method()` inside the same class. Use `$this->cached('method', [...])` for internal calls.
+
+### Static methods via proxy
+
+`CacheableProxy::wrapClass` returns a proxy object that intercepts static calls by name:
+
+```php
+use Aftandilmmd\Cacheable\Support\CacheableProxy;
+
+$proxy = CacheableProxy::wrapClass(UserService::class);
+$proxy->active(); // calls UserService::active() through the cache layer
+```
 
 ---
 
@@ -508,6 +523,9 @@ You can also swap the entire caching pipeline by implementing `CacheAspect`.
 
 **`$this->method()` isn't cached.**
 PHP can't intercept self-calls. Use `$this->cached('method', [...])` or inject a proxy.
+
+**Static method isn't cached.**
+`auto_proxy` and `Cacheable::proxy()` only wrap instances. Use `HasCacheableMethods` + `cached('method', [...])` or `CacheableProxy::wrapClass(MyClass::class)->method()`.
 
 **Tags do nothing.**
 Tags require a taggable store (`redis`, `memcached`, `array`). Switch the store or use `forget` keys instead.
