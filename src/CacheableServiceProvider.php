@@ -89,7 +89,7 @@ class CacheableServiceProvider extends ServiceProvider
                 continue;
             }
 
-            $this->app->resolving($abstract, function ($instance, $app) {
+            $this->app->extend($abstract, function ($instance, $app) {
                 if ($instance instanceof CacheableProxy) {
                     return $instance;
                 }
